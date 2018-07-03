@@ -28,15 +28,17 @@
       (.fillRect 0 0 width height)
       (aset "fillStyle" "white")
       (aset "font" "24px monospace")
-      (.fillText (:playerScore @app-state) (* width (/ 3 8)) 50)
-      (.fillText (:computerScore @app-state) (* width (/ 5 8)) 50))))
+      ;(.fillText (:playerScore @app-state) (* width (/ 3 8)) 50)
+      (.fillText (:playerScore @app-state) (/ width 4) 30)
+      (.fillText (:computerScore @app-state) (/ width 2) 30))))
 
-(drawGameShell (getContext))
+(defn gameLoop []
+  (js/setInterval #(drawGameShell (getContext)) 100))
+
+(defonce game-loop (gameLoop))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
-  (drawGameShell (getContext))
-  (println "foo")
   (.focus (getCanvas)))
