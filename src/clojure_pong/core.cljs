@@ -3,13 +3,6 @@
 
 (enable-console-print!)
 
-;; define your app data so that it doesn't get over-written on reload
-(defonce app-state (atom {:text "Hello world!"
-                          :playerScore 0
-                          :computerScore 0
-                          :playerPaddleVelocity 1
-                          :playerPaddleY 0}))
-
 (defn getCanvasDimensions [canvas]
   (let [width (.-offsetWidth canvas)
         height (.-offsetHeight canvas)]
@@ -20,6 +13,23 @@
 
 (defn getContext []
   (.getContext (getCanvas) "2d"))
+
+;; define your app data so that it doesn't get over-written on reload
+(defonce app-state (atom {:playerScore 0
+                          :computerScore 0
+                          :playerPaddleY 0}))
+
+(defonce playerVelocity (atom 1))
+
+(add-watch app-state :changeVelocity  (fn [_f _k _r o _n] (let [canvasDimensions (getCanvasDimensions (getCanvas))
+                                                            height (:height canvasDimensions)
+                                                            oldY (:playerPaddleY o)]
+                                                         (do
+                                                           (if (> oldY (- height 40))
+                                                             (swap! playerVelocity unchecked-negate))
+                                                           (if (< oldY 0)
+                                                             (swap! playerVelocity unchecked-negate))))))
+
 
 (defn drawGameShell [context]
   (let [canvasDimensions (getCanvasDimensions (getCanvas))
@@ -45,16 +55,8 @@
       (.fillRect (- width 20 10) startingY 10 40))))
 
 (defn updateBoard []
-  (let [canvasDimensions (getCanvasDimensions (getCanvas))
-        height (:height canvasDimensions)
-        ]
-    (do
-      (println "update board")
-      (if (> (:playerPaddleY @app-state) (- height 40))
-        (swap! app-state update-in [:playerPaddleVelocity] unchecked-negate))
-      (if (< (:playerPaddleY @app-state) 0)
-        (swap! app-state update-in [:playerPaddleVelocity] unchecked-negate))
-      (swap! app-state update-in [:playerPaddleY] + (:playerPaddleVelocity @app-state)))))
+  (do
+    (swap! app-state update-in [:playerPaddleY] + @playerVelocity)))
 
 (defn gameLoop []
   (js/setInterval #(do
