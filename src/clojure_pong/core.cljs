@@ -1,5 +1,7 @@
 (ns clojure-pong.core
-    (:require ))
+  (:require [clojure.browser.event :as event]
+            ))
+
 
 (enable-console-print!)
 
@@ -21,15 +23,18 @@
 
 (defonce playerVelocity (atom 1))
 
-(add-watch app-state :changeVelocity  (fn [_f _k _r o _n] (let [canvasDimensions (getCanvasDimensions (getCanvas))
-                                                            height (:height canvasDimensions)
-                                                            oldY (:playerPaddleY o)]
-                                                         (do
-                                                           (if (> oldY (- height 40))
-                                                             (swap! playerVelocity unchecked-negate))
-                                                           (if (< oldY 0)
-                                                             (swap! playerVelocity unchecked-negate))))))
+(event/listen (getCanvas) "keydown" #(println "foo"))
 
+(add-watch app-state :changeVelocity  (fn [_f _k _r o _n] (let [canvasDimensions (getCanvasDimensions (getCanvas))
+                                                                height (:height canvasDimensions)
+                                                                oldY (:playerPaddleY o)
+                                                                isAtFarEdge (> oldY (- height 40))
+                                                                isAtLowerEdge (< oldY 0)
+                                                                shouldRevertDirection (or isAtFarEdge isAtLowerEdge)]
+                                                         (do
+                                                           (if shouldRevertDirection
+                                                             (swap! playerVelocity unchecked-negate))
+                                                           ))))
 
 (defn drawGameShell [context]
   (let [canvasDimensions (getCanvasDimensions (getCanvas))
@@ -63,9 +68,10 @@
                      (drawGameShell (getContext))
                      (drawPaddles (getContext))
                      (updateBoard)
-                       )) 100)
+                       )) 25)
 
 (defonce game-loop (gameLoop))
+(.focus (getCanvas))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
