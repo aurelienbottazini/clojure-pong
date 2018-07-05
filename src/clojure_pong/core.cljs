@@ -1,5 +1,6 @@
 (ns clojure-pong.core
-  (:require [clojure.browser.event :as event]
+  (:require [clojure.browser.event :as cevent]
+            [clojure.browser.dom :as cdom]
             ))
 
 
@@ -11,7 +12,7 @@
     { :width width, :height height}))
 
 (defn getCanvas []
-  (.. js/document (getElementById "canvas")))
+  (cdom/get-element "canvas"))
 
 (defn getContext []
   (.getContext (getCanvas) "2d"))
@@ -21,20 +22,17 @@
                           :computerScore 0
                           :playerPaddleY 0}))
 
-(defonce playerVelocity (atom 1))
+(defonce playerVelocity (atom 5))
 
-(event/listen (getCanvas) "keydown" #(println "foo"))
-
-(add-watch app-state :changeVelocity  (fn [_f _k _r o _n] (let [canvasDimensions (getCanvasDimensions (getCanvas))
-                                                                height (:height canvasDimensions)
-                                                                oldY (:playerPaddleY o)
-                                                                isAtFarEdge (> oldY (- height 40))
-                                                                isAtLowerEdge (< oldY 0)
-                                                                shouldRevertDirection (or isAtFarEdge isAtLowerEdge)]
-                                                         (do
-                                                           (if shouldRevertDirection
-                                                             (swap! playerVelocity unchecked-negate))
-                                                           ))))
+(cevent/listen (getCanvas) "keydown" #(let [key-pressed (.-key %1)
+                                            canvasDimensions (getCanvasDimensions (getCanvas))
+                                            height (:height canvasDimensions)
+                                            isAtFarEdge (> (:playerPaddleY @app-state) (- height 40))
+                                            isAtLowerEdge (< (:playerPaddleY @app-state) 0)]
+                                        (cond
+                                          (= key-pressed "ArrowUp") (if-not isAtLowerEdge (swap! app-state update-in [:playerPaddleY] - @playerVelocity))
+                                          (= key-pressed "ArrowDown") (if-not isAtFarEdge (swap! app-state update-in [:playerPaddleY] + @playerVelocity))
+                                          :else (js/console.log "Key not used by game" key-pressed))))
 
 (defn drawGameShell [context]
   (let [canvasDimensions (getCanvasDimensions (getCanvas))
@@ -45,7 +43,6 @@
       (.fillRect 0 0 width height)
       (aset "fillStyle" "white")
       (aset "font" "24px monospace")
-      ;(.fillText (:playerScore @app-state) (* width (/ 3 8)) 50)
       (.fillText (:playerScore @app-state) (* width (/ 3 8)) 30)
       (.fillText (:computerScore @app-state) (* width (/ 5 8)) 30))))
 
@@ -59,18 +56,45 @@
       (.fillRect 20 (:playerPaddleY @app-state) 10 40)
       (.fillRect (- width 20 10) startingY 10 40))))
 
+(defonce ball-position (let [canvasDimensions (getCanvasDimensions (getCanvas))
+                             width (:width canvasDimensions)
+                             height (:height canvasDimensions)
+                             startingY (- (/ height 2) (/ 10 2))
+                             startingX (- (/ width 2) (/ 10 2))]
+                         (atom { :x startingX, :y startingY })))
+
+(defn drawBall [context]
+    (doto context
+      (aset "fillStyle" "white")
+      (.fillRect (:x @ball-position) (:y @ball-position) 10 10)))
+
+(defn updateBall []
+  (let [min-angle -30
+        max-angle 30
+        angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
+        radian (/ js/Math.PI 180)
+        speed 1
+        x-velocity (* speed (js/Math.sin (* angle radian)))
+        y-velocity (* speed (js/Math.cos (* angle radian)))
+        ]
+    (do
+      (cond
+        (or (> (:y @ball-position) 200)) (swap! ball-position assoc :x (+ (:x @ball-position) x-velocity) :y (+ (:y @ball-position) (* -1 y-velocity)))
+        :else (swap! ball-position assoc :x (+ (:x @ball-position) x-velocity) :y (+ (:y @ball-position) y-velocity))))))
+
 (defn updateBoard []
   (do
-    (swap! app-state update-in [:playerPaddleY] + @playerVelocity)))
+    (updateBall)))
 
 (defn gameLoop []
   (js/setInterval #(do
                      (drawGameShell (getContext))
                      (drawPaddles (getContext))
-                     (updateBoard)
-                       )) 25)
+                     (drawBall (getContext))
+                     (updateBoard))) 25)
 
 (defonce game-loop (gameLoop))
+
 (.focus (getCanvas))
 
 (defn on-js-reload []
