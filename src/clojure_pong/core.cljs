@@ -27,11 +27,11 @@
 (cevent/listen (getCanvas) "keydown" #(let [key-pressed (.-key %1)
                                             canvasDimensions (getCanvasDimensions (getCanvas))
                                             height (:height canvasDimensions)
-                                            isAtFarEdge (> (:playerPaddleY @app-state) (- height 40))
-                                            isAtLowerEdge (< (:playerPaddleY @app-state) 0)]
+                                            atFarEdge (> (:playerPaddleY @app-state) (- height 40))
+                                            atLowerEdge (< (:playerPaddleY @app-state) 0)]
                                         (cond
-                                          (= key-pressed "ArrowUp") (if-not isAtLowerEdge (swap! app-state update-in [:playerPaddleY] - @playerVelocity))
-                                          (= key-pressed "ArrowDown") (if-not isAtFarEdge (swap! app-state update-in [:playerPaddleY] + @playerVelocity))
+                                          (= key-pressed "ArrowUp") (if-not atLowerEdge (swap! app-state update-in [:playerPaddleY] - @playerVelocity))
+                                          (= key-pressed "ArrowDown") (if-not atFarEdge (swap! app-state update-in [:playerPaddleY] + @playerVelocity))
                                           :else (js/console.log "Key not used by game" key-pressed))))
 
 (defn drawGameShell [context]
@@ -60,8 +60,16 @@
                              width (:width canvasDimensions)
                              height (:height canvasDimensions)
                              startingY (- (/ height 2) (/ 10 2))
-                             startingX (- (/ width 2) (/ 10 2))]
-                         (atom { :x startingX, :y startingY })))
+                             startingX (- (/ width 2) (/ 10 2))
+                             min-angle -30
+                             max-angle 30
+                             angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
+                             radian (/ js/Math.PI 180)
+                             speed 1
+                             x-velocity (* speed (js/Math.cos (* angle radian)))
+                             y-velocity (* speed (js/Math.sin (* angle radian)))
+                             ]
+                         (atom { :x startingX, :y startingY, :angle angle }, :x-velocity x-velocity, :y-velocity y-velocity)))
 
 (defn drawBall [context]
     (doto context
@@ -69,18 +77,9 @@
       (.fillRect (:x @ball-position) (:y @ball-position) 10 10)))
 
 (defn updateBall []
-  (let [min-angle -30
-        max-angle 30
-        angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
-        radian (/ js/Math.PI 180)
-        speed 1
-        x-velocity (* speed (js/Math.sin (* angle radian)))
-        y-velocity (* speed (js/Math.cos (* angle radian)))
-        ]
-    (do
-      (cond
-        (or (> (:y @ball-position) 200)) (swap! ball-position assoc :x (+ (:x @ball-position) x-velocity) :y (+ (:y @ball-position) (* -1 y-velocity)))
-        :else (swap! ball-position assoc :x (+ (:x @ball-position) x-velocity) :y (+ (:y @ball-position) y-velocity))))))
+  (do
+    (or (> (:y @ball-position) 200) (swap! ball-position assoc :y-velocity (* -1 (:y-velocity @ball-position))))
+    (swap! ball-position assoc :x (+ (:x @ball-position) (:x-velocity @ball-position)) :y (+ (:y @ball-position) (:y-velocity @ball-position)))))
 
 (defn updateBoard []
   (do
