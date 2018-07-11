@@ -1,7 +1,6 @@
 (ns clojure-pong.core
   (:require [clojure.browser.event :as cevent]
-            [clojure.browser.dom :as cdom]
-            ))
+            [clojure.browser.dom :as cdom]))
 
 
 (enable-console-print!)
@@ -67,9 +66,14 @@
                              radian (/ js/Math.PI 180)
                              speed 1
                              x-velocity (* speed (js/Math.cos (* angle radian)))
+                             left-or-right-x-velocity (if (< 0.5 (rand))
+                                                        (* -1 x-velocity)
+                                                        x-velocity)
                              y-velocity (* speed (js/Math.sin (* angle radian)))
                              ]
-                         (atom { :x startingX, :y startingY, :angle angle }, :x-velocity x-velocity, :y-velocity y-velocity)))
+                         (atom { :x startingX, :y startingY, :angle angle , :x-velocity left-or-right-x-velocity, :y-velocity y-velocity })))
+
+;(add-watch ball-position :log (fn [k r o n] (println n)))
 
 (defn drawBall [context]
     (doto context
@@ -78,7 +82,6 @@
 
 (defn updateBall []
   (do
-    (or (> (:y @ball-position) 200) (swap! ball-position assoc :y-velocity (* -1 (:y-velocity @ball-position))))
     (swap! ball-position assoc :x (+ (:x @ball-position) (:x-velocity @ball-position)) :y (+ (:y @ball-position) (:y-velocity @ball-position)))))
 
 (defn updateBoard []
