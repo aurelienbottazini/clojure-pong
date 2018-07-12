@@ -1,6 +1,9 @@
 # clojure-pong
 
-Clojurescript based Pong implementation
+Clojurescript based Pong 
+
+- Use Arrow Up and Arrow Down to move
+- Hit `r` to reset
 
 ## Setup
 
