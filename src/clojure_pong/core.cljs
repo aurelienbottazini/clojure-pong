@@ -18,8 +18,7 @@
 (defonce app-state (atom {:playerScore 0
                           :computerScore 0
                           :speed-mult 1.5
-                          :computer-speed 0.3
-                          }))
+                          :computer-speed 0.15}))
 
 (defonce player-paddle (atom {:x 20
                               :y (- (/ (:height canvasDimensions) 2) (/ 40 2))
