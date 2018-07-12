@@ -2,7 +2,6 @@
   (:require [clojure.browser.event :as cevent]
             [clojure.browser.dom :as cdom]))
 
-
 (enable-console-print!)
 
 (defn getCanvasDimensions [canvas]
@@ -19,14 +18,21 @@
 ;; define your app data so that it doesn't get over-written on reload
 (defonce app-state (atom {:playerScore 0
                           :computerScore 0
-                          :playerPaddleY 0}))
+                          }))
 
 (defonce playerVelocity (atom 5))
 
-(defonce player-paddle (atom {:y      0
-                              :x      20
+(defonce player-paddle (atom {:x     20
+                              :y  (- (/ (:height (getCanvasDimensions (getCanvas))) 2) 20)
                               :width  10
                               :height 40}))
+
+(defonce computer-paddle (atom {
+                                :x (- (:width (getCanvasDimensions (getCanvas))) 20 10)
+                                :y  (- (/ (:height (getCanvasDimensions (getCanvas))) 2) 20)
+                                :width 10
+                                :height 40
+                                }))
 
 (cevent/listen (getCanvas) "keydown" #(let [key-pressed (.-key %1)
                                             canvasDimensions (getCanvasDimensions (getCanvas))
@@ -58,25 +64,35 @@
     (doto context
       (aset "fillStyle" "white")
       (.fillRect (:x @player-paddle) (:y @player-paddle) (:width @player-paddle) (:height @player-paddle))
-      (.fillRect (- width 20 10) startingY 10 40))))
+      (.fillRect (:x @computer-paddle) (:y @computer-paddle) (:width @computer-paddle) (:height @computer-paddle)))))
 
-(defonce ball-position (let [canvasDimensions (getCanvasDimensions (getCanvas))
-                             width (:width canvasDimensions)
-                             height (:height canvasDimensions)
-                             startingY (- (/ height 2) (/ 10 2))
-                             startingX (- (/ width 2) (/ 10 2))
-                             min-angle -30
-                             max-angle 30
-                             angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
-                             radian (/ js/Math.PI 180)
-                             speed 0.2
-                             x-velocity (* speed (js/Math.cos (* angle radian)))
-                             left-or-right-x-velocity (if (< 0.5 (rand))
-                                                        (* -1 x-velocity)
-                                                        x-velocity)
-                             y-velocity (* speed (js/Math.sin (* angle radian)))
-                             ]
-                         (atom { :x startingX, :y startingY, :angle angle , :width 10, :height 10, :x-velocity left-or-right-x-velocity, :y-velocity y-velocity })))
+(defn ball-starting-position []
+  (let [canvasDimensions (getCanvasDimensions (getCanvas))
+        width (:width canvasDimensions)
+        height (:height canvasDimensions)
+        startingY (- (/ height 2) (/ 10 2))
+        startingX (- (/ width 2) (/ 10 2))]
+    { :x startingX :y startingY})
+  )
+
+
+(defn gen-velocity [] (let [
+                        min-angle -30
+                        max-angle 30
+                        angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
+                        radian (/ js/Math.PI 180)
+                        speed 0.4
+                        x-velocity (* speed (js/Math.cos (* angle radian)))
+                        left-or-right-x-velocity (if (< 0.5 (rand))
+                                                   (unchecked-negate x-velocity)
+                                                   x-velocity)
+                        y-velocity (* speed (js/Math.sin (* angle radian)))
+                        ]
+                     {:x-velocity left-or-right-x-velocity :y-velocity y-velocity}))
+
+(defonce velocity (atom (gen-velocity)))
+
+(defonce ball-position (atom { :x (:x (ball-starting-position)), :y (:y (ball-starting-position)), :width 10, :height 10 }))
 
 (defn intersect [a b]
   (and (> (+ (:y a) (:height a)) (:y b))
@@ -84,22 +100,46 @@
        (> (+ (:x a) (:width a)) (:x b))
        (< (:x a) (+ (:x b) (:width b)))))
 
-(add-watch ball-position :velocity (fn [k r o n] (if (intersect o @player-paddle)
-                                                   (swap! ball-position assoc :x-velocity (* -1 (:x-velocity @ball-position))))))
+(defn reset-ball []
+  (swap! ball-position assoc :x (:x (ball-starting-position)) :y (:y (ball-starting-position)))
+  (reset! velocity (gen-velocity)))
+
+(add-watch ball-position :velocity (fn [_k _r _o n]
+                                       (cond
+                                         (intersect n @player-paddle) (do
+                                                                        (swap! velocity update-in [:x-velocity] unchecked-negate)
+                                                                        (swap! velocity update-in [:x-velocity] #(* 1.1 %1))
+                                                                        )
+                                         (intersect n @computer-paddle) (swap! velocity update-in [:x-velocity] unchecked-negate)
+                                         (< (:x n) 0) (do (swap! app-state update-in [:computerScore] inc) (reset-ball))
+                                         (> (:x n) (:width (getCanvasDimensions (getCanvas)))) (do (swap! app-state update-in [:playerScore] inc) (reset-ball))
+                                         (< (:y n) 0) (swap! velocity update-in [:y-velocity] unchecked-negate)
+                                         (> (+ (:y n) (:height @ball-position)) (:height (getCanvasDimensions (getCanvas)))) (swap! velocity update-in [:y-velocity] unchecked-negate)
+                                         :else nil)))
 
 
 (defn drawBall [context]
-    (doto context
-      (aset "fillStyle" "white")
-      (.fillRect (:x @ball-position) (:y @ball-position) (:width @ball-position) (:height @ball-position))))
+  (doto context
+    (aset "fillStyle" "white")
+    (.fillRect (:x @ball-position) (:y @ball-position) (:width @ball-position) (:height @ball-position))))
 
 (defn updateBall []
   (do
-    (swap! ball-position assoc :x (+ (:x @ball-position) (:x-velocity @ball-position)) :y (+ (:y @ball-position) (:y-velocity @ball-position)))))
+    (swap! ball-position assoc :x (+ (:x @ball-position) (:x-velocity @velocity)) :y (+ (:y @ball-position) (:y-velocity @velocity)))))
+
+(defn update-computer-paddle []
+  (let [ball-y (+ (:y @ball-position) (/ (:height @ball-position) 2))
+        computer-y (+ (:y @computer-paddle) (/ (:height @computer-paddle) 2))]
+    (cond
+      (< ball-y computer-y) (swap! computer-paddle update-in [:y] dec)
+      (> ball-y computer-y) (swap! computer-paddle update-in [:y] inc)
+      :else nil)))
 
 (defn updateBoard []
   (do
-    (updateBall)))
+    (updateBall)
+    (update-computer-paddle)
+    ))
 
 (defn gameLoop []
   (js/setInterval #(do
