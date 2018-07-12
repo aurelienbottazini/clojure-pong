@@ -4,6 +4,7 @@
 
 (enable-console-print!)
 
+
 (def canvas
   (cdom/get-element "canvas"))
 
@@ -16,7 +17,8 @@
 
 (defonce app-state (atom {:playerScore 0
                           :computerScore 0
-                          :speed-mult 1.3
+                          :speed-mult 1.5
+                          :computer-speed 0.3
                           }))
 
 (defonce player-paddle (atom {:x 20
@@ -83,7 +85,8 @@
 (add-watch ball :ball (fn [_k _r _o n]
                             (cond
                               (intersect n @player-paddle) (do (swap! velocity update-in [:x-velocity] js/Math.abs)
-                                                               (swap! velocity update-in [:x-velocity] #(* (:speed-mult @app-state) %1)))
+                                                               (if (< (:x-velocity @velocity) 3)
+                                                                 (swap! velocity update-in [:x-velocity] * (:speed-mult @app-state))))
                               (intersect n @computer-paddle) (swap! velocity update-in [:x-velocity] (comp unchecked-negate js/Math.abs))
                               (< (:x n) 0) (do (swap! app-state update-in [:computerScore] inc) (reset-ball))
                               (> (:x n) (:width canvasDimensions)) (do (swap! app-state update-in [:playerScore] inc) (reset-ball))
@@ -102,8 +105,8 @@
   (let [ball-y (+ (:y @ball) (/ (:height @ball) 2))
         computer-y (+ (:y @computer-paddle) (/ (:height @computer-paddle) 2))]
     (cond
-      (< ball-y computer-y) (swap! computer-paddle update-in [:y] #(- %1 0.15))
-      (> ball-y computer-y) (swap! computer-paddle update-in [:y] #(+ 0.15 %1))
+      (< ball-y computer-y) (swap! computer-paddle update-in [:y] #(- %1 (:computer-speed @app-state)))
+      (> ball-y computer-y) (swap! computer-paddle update-in [:y] #(+ (:computer-speed @app-state) %1))
       :else nil)))
 
 (defn update-game []
