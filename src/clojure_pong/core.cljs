@@ -17,8 +17,12 @@
 
 (defonce app-state (atom {:playerScore 0
                           :computerScore 0
+                          :fps 60
+                          :interval (/ 1000 60)
+                          :speed 3
                           :speed-mult 1.5
-                          :computer-speed 0.15}))
+                          :computer-speed 2
+                          :last-update 0}))
 
 (defonce player-paddle (atom {:x 20
                               :y (- (/ (:height canvasDimensions) 2) (/ 40 2))
@@ -59,12 +63,11 @@
                              max-angle 30
                              angle (+ min-angle (js/Math.floor (* (rand) (- max-angle (+ 1 min-angle)))))
                              radian (/ js/Math.PI 180)
-                             speed 0.4
-                             x-velocity (* speed (js/Math.cos (* angle radian)))
+                             x-velocity (* (:speed @app-state) (js/Math.cos (* angle radian)))
                              rand-x-velocity-direction (if (< 0.5 (rand))
                                                          (unchecked-negate x-velocity)
                                                          x-velocity)
-                             y-velocity (* speed (js/Math.sin (* angle radian)))]
+                             y-velocity (* (:speed @app-state) (js/Math.sin (* angle radian)))]
                          {:x-velocity rand-x-velocity-direction :y-velocity y-velocity}))
 
 (defonce velocity (atom (rand-velocity)))
@@ -98,26 +101,36 @@
     (aset "fillStyle" "white")
     (.fillRect (:x @ball) (:y @ball) (:width @ball) (:height @ball))))
 
-(defn update-ball [] (swap! ball assoc :x (+ (:x @ball) (:x-velocity @velocity)) :y (+ (:y @ball) (:y-velocity @velocity))))
+(defn update-ball [interval-percentage]
+  (swap! ball assoc
+         :x (+ (:x @ball) (* interval-percentage (:x-velocity @velocity)))
+         :y (+ (:y @ball) (* interval-percentage (:y-velocity @velocity)))))
 
-(defn update-computer-paddle []
+(defn update-computer-paddle [interval-percentage]
   (let [ball-y (+ (:y @ball) (/ (:height @ball) 2))
         computer-y (+ (:y @computer-paddle) (/ (:height @computer-paddle) 2))]
     (cond
       (< ball-y computer-y) (swap! computer-paddle update-in [:y] #(- %1 (:computer-speed @app-state)))
-      (> ball-y computer-y) (swap! computer-paddle update-in [:y] #(+ (:computer-speed @app-state) %1))
-      :else nil)))
+      :else (swap! computer-paddle update-in [:y] #(+ (:computer-speed @app-state) %1))
+      )))
 
-(defn update-game []
+(defn update-game [interval-percentage]
   (do
-    (update-ball)
-    (update-computer-paddle)))
+    (update-ball interval-percentage)
+    (update-computer-paddle interval-percentage)))
 
 (defn gameLoop []
-  (js/setInterval #(do (draw-game-shell context)
-                       (draw-paddles context)
-                       (draw-ball context)
-                       (update-game))) 25)
+  ;timeDelta = currentTime - this.lastUpdateTime,
+  ;percentageOfInterval = timeDelta / interval
+  (let [current-time (.getTime (js/Date.))
+        time-delta (- current-time (:last-update @app-state))
+        interval-percentage (/ time-delta (:interval @app-state))]
+    (js/requestAnimationFrame #(do (update-game interval-percentage)
+                                   (swap! app-state assoc :last-update current-time)
+                                   (draw-game-shell context)
+                                   (draw-paddles context)
+                                   (draw-ball context)
+                                   (gameLoop)))))
 
 (defn reset-scores []
   (swap! app-state assoc :playerScore 0 :computerScore 0))
@@ -132,7 +145,7 @@
                                      (= key-pressed "r") (do (reset-ball) (reset-scores))
                                      :else (js/console.log "Key not used by game" key-pressed))))
 
-(gameLoop)
+(js/requestAnimationFrame #(gameLoop))
 
 (.focus canvas)
 
