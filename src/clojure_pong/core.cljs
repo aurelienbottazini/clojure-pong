@@ -1,9 +1,9 @@
 (ns clojure-pong.core
   (:require [clojure.browser.event :as cevent]
-            [clojure.browser.dom :as cdom]))
+            [clojure.browser.dom :as cdom]
+            [goog.dom.animationFrame :as ganimation]))
 
 (enable-console-print!)
-
 
 (def canvas
   (cdom/get-element "canvas"))
@@ -20,7 +20,7 @@
                           :fps 60
                           :interval (/ 1000 60)
                           :speed 3
-                          :speed-mult 1.5
+                          :speed-mult 1.1
                           :computer-speed 2
                           :last-update 0}))
 
@@ -106,31 +106,35 @@
          :x (+ (:x @ball) (* interval-percentage (:x-velocity @velocity)))
          :y (+ (:y @ball) (* interval-percentage (:y-velocity @velocity)))))
 
-(defn update-computer-paddle [interval-percentage]
+(defn update-computer-paddle [_interval-percentage]
   (let [ball-y (+ (:y @ball) (/ (:height @ball) 2))
         computer-y (+ (:y @computer-paddle) (/ (:height @computer-paddle) 2))]
     (cond
+      (< (js/Math.abs (- ball-y computer-y)) (/ (:height @ball) 2)) (js/console.log "Computer does not need to move")
       (< ball-y computer-y) (swap! computer-paddle update-in [:y] #(- %1 (:computer-speed @app-state)))
-      :else (swap! computer-paddle update-in [:y] #(+ (:computer-speed @app-state) %1))
-      )))
+      :else (swap! computer-paddle update-in [:y] #(+ (:computer-speed @app-state) %1)))))
 
 (defn update-game [interval-percentage]
   (do
     (update-ball interval-percentage)
     (update-computer-paddle interval-percentage)))
 
+(def animationTask
+    (ganimation/createTask #js {
+                                :mutate (fn []
+                                          (let [current-time (.getTime (js/Date.))
+                                                time-delta (- current-time (:last-update @app-state))
+                                                interval-percentage (/ time-delta (:interval @app-state))]
+                                            (update-game interval-percentage)
+                                            (swap! app-state assoc :last-update current-time)
+                                            (draw-game-shell context)
+                                            (draw-paddles context)
+                                            (draw-ball context)
+                                            (animationTask)))
+                                :measure  identity}))
+
 (defn gameLoop []
-  ;timeDelta = currentTime - this.lastUpdateTime,
-  ;percentageOfInterval = timeDelta / interval
-  (let [current-time (.getTime (js/Date.))
-        time-delta (- current-time (:last-update @app-state))
-        interval-percentage (/ time-delta (:interval @app-state))]
-    (js/requestAnimationFrame #(do (update-game interval-percentage)
-                                   (swap! app-state assoc :last-update current-time)
-                                   (draw-game-shell context)
-                                   (draw-paddles context)
-                                   (draw-ball context)
-                                   (gameLoop)))))
+  (animationTask))
 
 (defn reset-scores []
   (swap! app-state assoc :playerScore 0 :computerScore 0))
