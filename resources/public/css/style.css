@@ -1,7 +1,6 @@
-/* some style */
-
-#canvas {
+#app {
+    font-family: monospace;
     width: 400px;
-    height: 300px;
+    margin: 0 auto;
 }
 
