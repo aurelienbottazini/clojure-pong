@@ -44,7 +44,7 @@
                ;; lein cljsbuild once min
                {:id "min"
                 :source-paths ["src"]
-                :compiler {:output-to "docs/js/clojure_pong.js"
+                :compiler {:output-to "docs/js/compiled/clojure_pong.js"
                            :main clojure-pong.core
                            :optimizations :advanced
                            :pretty-print false}}]}
