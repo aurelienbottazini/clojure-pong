@@ -4,3 +4,8 @@
     margin: 0 auto;
 }
 
+canvas {
+    width: 400px;
+    height: 300px;
+}
+
