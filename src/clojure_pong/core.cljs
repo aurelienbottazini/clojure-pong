@@ -121,7 +121,7 @@
 
 (def animationTask
     (ganimation/createTask #js {
-                                :mutate (fn []
+                                :measure (fn []
                                           (let [current-time (.getTime (js/Date.))
                                                 time-delta (- current-time (:last-update @app-state))
                                                 interval-percentage (/ time-delta (:interval @app-state))]
@@ -131,10 +131,7 @@
                                             (draw-paddles context)
                                             (draw-ball context)
                                             (animationTask)))
-                                :measure  identity}))
-
-(defn gameLoop []
-  (animationTask))
+                                :mutate  identity }))
 
 (defn reset-scores []
   (swap! app-state assoc :playerScore 0 :computerScore 0))
@@ -154,12 +151,12 @@
                                      (= key-pressed "r") (do (reset-ball) (reset-scores))
                                      :else (js/console.log "Key not used by game" key-pressed))))
 
-(js/requestAnimationFrame #(gameLoop))
+(defn gameLoop []
+  (animationTask))
+
+(gameLoop)
 
 (.focus canvas)
 
 (defn on-js-reload []
-  ;; optionally touch your app-state to force rerendering depending on
-  ;; your application
-  ;; (swap! app-state update-in [:__figwheel_counter] inc)
   (.focus canvas))
