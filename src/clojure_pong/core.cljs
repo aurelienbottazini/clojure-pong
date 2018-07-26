@@ -137,9 +137,8 @@
   (swap! app-state assoc :playerScore 0 :computerScore 0))
 
 (cevent/listen canvas "touchstart" #(let [touchY (- (.-clientY %1) (.-offsetTop canvas))]
-                                      (if (< touchY (:y @player-paddle))
-                                        (swap! player-paddle update-in [:y] - (:velocity @player-paddle))
-                                        (swap! player-paddle update-in [:y] + (:velocity @player-paddle)))))
+                                        (js/console.log touchY (:y @player-paddle))
+                                        (swap! player-paddle assoc :y touchY)))
 
 (cevent/listen canvas "keydown" #(let [key-pressed (.-key %1)
                                        height (:height canvasDimensions)
