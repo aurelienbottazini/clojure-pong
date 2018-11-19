@@ -20,8 +20,8 @@
                           :fps 60
                           :interval (/ 1000 60)
                           :speed 3
-                          :speed-mult 1.1
-                          :computer-speed 2
+                          :speed-mult 1.3
+                          :computer-speed 0.75
                           :last-update 0}))
 
 (defonce player-paddle (atom {:x 20
